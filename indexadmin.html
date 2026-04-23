@@ -2,42 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Oryx Admin - Control Center</title>
+    <title>Oryx Admin - Control</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #eee; padding: 20px; }
-        .card { background: #1e1e1e; padding: 25px; border-radius: 15px; max-width: 900px; margin: auto; border: 1px solid #333; margin-bottom: 20px; }
-        h2 { color: #4caf50; margin-top: 0; }
-        input, select { background: #2c2c2c; border: 1px solid #444; color: #fff; padding: 10px; margin: 5px 0; width: 100%; border-radius: 8px; box-sizing: border-box; }
-        button { background: #4caf50; color: #fff; border: none; padding: 12px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 15px; max-width: 900px; margin: auto; border: 1px solid #333; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; border: 1px solid #333; text-align: left; font-size: 14px; }
+        th, td { padding: 12px; border: 1px solid #333; text-align: left; }
         th { background: #333; color: #4caf50; }
-        .logo-link { color: #4caf50; text-decoration: none; font-weight: bold; }
+        select { background: #2c2c2c; color: white; padding: 5px; border-radius: 5px; }
+        .logo-btn { color: #4caf50; font-weight: bold; text-decoration: none; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>🛠️ Set Secret Production Cost</h2>
-    <input type="text" id="orderCode" placeholder="Order ID (e.g. PEN-101)">
-    <input type="number" id="costVal" placeholder="Cost Amount">
-    <select id="costCurr">
-        <option value="USD">USD ($)</option><option value="BDT" selected>BDT (৳)</option><option value="GHS">GHS (₵)</option>
-    </select>
-    <button onclick="saveCost()">Save Secret ID</button>
-</div>
-
-<div class="card">
-    <h2>📦 Manage Orders & Tracking</h2>
-    <table id="adminOrderTable">
+    <h2 style="color: #4caf50;">Oryx Group - Admin Panel</h2>
+    <table id="orderTable">
         <thead>
             <tr>
                 <th>Order ID</th>
-                <th>Details</th>
-                <th>Design/Logo</th>
-                <th>Action Status</th>
+                <th>Business</th>
+                <th>Logo</th>
+                <th>Update Status</th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -45,37 +33,31 @@
 </div>
 
 <script>
-    const firebaseConfig = { databaseURL: "https://oryx-partner-database-default-rtdb.firebaseio.com/" };
+    const firebaseConfig = {
+        apiKey: "AIzaSyAcmHCVoSCtSIFWsHvs6nmxlfSGE6hFDFo",
+        authDomain: "oryx-partner-database.firebaseapp.com",
+        databaseURL: "https://oryx-partner-database-default-rtdb.firebaseio.com",
+        projectId: "oryx-partner-database"
+    };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    function saveCost() {
-        const id = document.getElementById('orderCode').value.trim();
-        const amt = document.getElementById('costVal').value;
-        const cur = document.getElementById('costCurr').value;
-        if(id && amt) {
-            db.ref('costs/' + id).set({ amount: parseFloat(amt), currency: cur })
-            .then(() => alert("Saved!"));
-        }
-    }
-
     db.ref('orders/').on('value', snapshot => {
-        const tbody = document.querySelector("#adminOrderTable tbody");
+        const tbody = document.querySelector("#orderTable tbody");
         tbody.innerHTML = "";
         snapshot.forEach(child => {
             const d = child.val();
             tbody.innerHTML += `
                 <tr>
-                    <td><b>${d.orderId}</b><br><small>${d.time}</small></td>
-                    <td>${d.business}<br>${d.quantity} pcs | Adv: ${d.advance}</td>
-                    <td><a href="${d.logo}" target="_blank" class="logo-link">📥 View Logo</a></td>
+                    <td>${d.orderId}</td>
+                    <td>${d.business}</td>
+                    <td><a href="${d.logo}" target="_blank" class="logo-btn">View Logo</a></td>
                     <td>
                         <select onchange="updateTrack('${d.orderId}', this.value)">
                             <option selected>${d.status}</option>
                             <option value="Printing">Printing</option>
                             <option value="Making">Making</option>
                             <option value="Drying">Drying</option>
-                            <option value="To Main Shop">To Main Shop</option>
                             <option value="Transporting">Transporting</option>
                             <option value="Reached Customer">Reached Customer</option>
                         </select>
@@ -86,7 +68,7 @@
 
     function updateTrack(id, status) {
         db.ref('orders/' + id).update({ status: status, time: new Date().toLocaleString() })
-        .then(() => alert("Updated to " + status));
+        .then(() => alert("Status Updated!"));
     }
 </script>
 </body>
