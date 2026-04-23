@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oryx Group - Partner Dashboard</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .card { max-width: 600px; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin: auto; margin-bottom: 20px; }
+        .logo { color: #1b5e20; font-size: 32px; font-weight: bold; text-align: center; margin-bottom: 10px; }
+        .section-title { border-bottom: 2px solid #1b5e20; padding-bottom: 5px; margin: 25px 0 10px 0; color: #1b5e20; font-weight: bold; }
+        label { font-size: 13px; color: #555; font-weight: 600; display: block; margin-top: 15px; }
+        input, select, textarea { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 15px; }
+        .btn { width: 100%; padding: 15px; background: #1b5e20; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 15px; transition: 0.3s; }
+        .btn:hover { background: #144d1a; }
+        .btn-track { background: #333; }
+        #trackResult { display: none; background: #fff9c4; padding: 20px; border-radius: 15px; margin-top: 15px; border-left: 6px solid #fbc02d; }
+        .loading { display: none; text-align: center; color: #1b5e20; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card" id="loginBox">
+    <div class="logo">Oryx Group</div>
+    <p style="text-align: center; color: #666;">Global Partner Access</p>
+    <button class="btn" onclick="googleLogin()">Login with Google</button>
+</div>
+
+<div id="dashboard" style="display:none">
+    <div class="card">
+        <div class="logo">Oryx Group</div>
+        <p id="userStatus" style="text-align: center; font-weight: bold; color: #1b5e20;"></p>
+        
+        <div class="section-title">📦 Place New Order</div>
+        <form id="orderForm">
+            <input type="text" id="custName" placeholder="Full Name" required>
+            <input type="text" id="bizName" placeholder="Business Name" required>
+            <textarea id="address" placeholder="Full Delivery Address" rows="2" required></textarea>
+            
+            <label>Total Quantity (Min 1000):</label>
+            <input type="number" id="qty" min="1000" placeholder="e.g. 5000" required>
+            
+            <label>Upload Logo/Design (JPG/PNG):</label>
+            <input type="file" id="logoFile" accept="image/*" required>
+
+            <label>Instructions/Text to Print:</label>
+            <textarea id="printText" placeholder="Write text or extra instructions here..."></textarea>
+
+            <label>Advance Payment (Minimum 40%):</label>
+            <input type="number" id="advance" placeholder="Enter amount" required>
+
+            <button type="button" class="btn" id="submitBtn" onclick="submitOrder()">Confirm & Upload Order</button>
+            <div id="loader" class="loading">Uploading Order & Design... Please wait.</div>
+        </form>
+
+        <div class="section-title">🔍 Track Order</div>
+        <input type="text" id="trackId" placeholder="Enter Order ID (e.g. ORYX-1234)">
+        <button class="btn btn-track" onclick="trackOrder()">Check Tracking Status</button>
+        
+        <div id="trackResult">
+            <strong>Current Stage:</strong> <span id="curStatus"></span><br>
+            <strong>Last Update:</strong> <small id="lastUpdate"></small>
+        </div>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = { databaseURL: "https://oryx-partner-database-default-rtdb.firebaseio.com/" };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const auth = firebase.auth();
+    const storage = firebase.storage();
+
+    function googleLogin() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider);
+    }
+
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            document.getElementById('loginBox').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            document.getElementById('userStatus').innerText = "Partner: " + user.displayName;
+        }
+    });
+
+    async function submitOrder() {
+        const file = document.getElementById('logoFile').files[0];
+        const qty = parseInt(document.getElementById('qty').value);
+        if(!file || qty < 1000) { alert("Please upload a logo and enter at least 1000 qty."); return; }
+
+        document.getElementById('submitBtn').style.display = 'none';
+        document.getElementById('loader').style.display = 'block';
+
+        try {
+            const orderId = "ORYX-" + Math.floor(1000 + Math.random() * 9000);
+            const storageRef = storage.ref('logos/' + orderId);
+            await storageRef.put(file);
+            const logoUrl = await storageRef.getDownloadURL();
+
+            const data = {
+                orderId: orderId,
+                customer: document.getElementById('custName').value,
+                business: document.getElementById('bizName').value,
+                address: document.getElementById('address').value,
+                quantity: qty,
+                logo: logoUrl,
+                text: document.getElementById('printText').value,
+                advance: document.getElementById('advance').value,
+                status: "Order Placed",
+                time: new Date().toLocaleString(),
+                email: auth.currentUser.email
+            };
+
+            await db.ref('orders/' + orderId).set(data);
+            alert("Order Success! ID: " + orderId);
+            location.reload();
+        } catch (e) {
+            alert("Error: " + e.message);
+            document.getElementById('submitBtn').style.display = 'block';
+            document.getElementById('loader').style.display = 'none';
+        }
+    }
+
+    function trackOrder() {
+        const id = document.getElementById('trackId').value.trim();
+        db.ref('orders/' + id).on('value', s => {
+            if(s.exists()){
+                document.getElementById('trackResult').style.display = 'block';
+                document.getElementById('curStatus').innerText = s.val().status;
+                document.getElementById('lastUpdate').innerText = s.val().time;
+            } else { alert("ID Not Found!"); }
+        });
+    }
+</script>
+</body>
+</html>
